@@ -3,7 +3,7 @@
 
 APP_NAME="V2rayU"
 INFOPLIST_FILE="Info.plist"
-BASE_DIR=$HOME/swift/V2rayU
+BASE_DIR=/Users/lixuan/code/V2rayU
 BUILD_DIR=${BASE_DIR}/Build
 V2rayU_ARCHIVE=${BUILD_DIR}/V2rayU.xcarchive
 V2rayU_RELEASE=${BUILD_DIR}/release
@@ -215,8 +215,8 @@ function makeDmg() {
 #    rm -fr ${DMG_FINAL} ${V2rayU_RELEASE}
 #    updatePlistVersion
 #    downloadV2ray
-#    build
-    createDmgByAppdmg
+build
+    # createDmgByAppdmg
 }
 
 function publish() {

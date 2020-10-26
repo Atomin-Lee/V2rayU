@@ -1,6 +1,7 @@
 # Uncomment the next line to define a global platform for your project
 # platform :ios, '9.0'
-source 'https://github.com/CocoaPods/Specs.git'
+# source 'https://github.com/CocoaPods/Specs.git'
+source 'https://mirrors.tuna.tsinghua.edu.cn/git/CocoaPods/Specs.git'
 platform :osx, '10.12'
 
 target 'V2rayU' do
@@ -16,5 +17,5 @@ target 'V2rayU' do
   pod 'QRCoder'
   pod 'MASShortcut'
   pod 'Swifter'
-
+  pod 'SwiftSoup'
 end

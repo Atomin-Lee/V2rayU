@@ -9,6 +9,9 @@
 import Cocoa
 import ServiceManagement
 import Swifter
+import SwiftSoup
+import Alamofire
+import SwiftyJSON
 
 let launcherAppIdentifier = "net.yanue.V2rayU.Launcher"
 let appVersion = getAppVersion()
@@ -84,8 +87,172 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Register global hotkey
         ShortcutsController.bindShortcuts()
+        
+        // 更新freev2配置的入口
+        /*let timeDate = Date.init(timeIntervalSinceNow: 79)
+        let timer = Timer.init(fire: timeDate,interval: 60,repeats: true){(kTimer) in
+            let now = Date()
+            
+            let dformatter = DateFormatter()
+            dformatter.dateFormat = "ss"
+            let seconds = dformatter.string(from: now)
+            if(seconds != "00") {
+                
+                print("not now", to:&self.logger)
+                return
+            }
+            
+            print("开始更新freev2配置信息", to: &self.logger)
+            self.getFreeV2()
+        }
+        RunLoop.current.add(timer, forMode: .default)
+        timer.fire()
+ */
+        
+        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { (ktimer) in
+            
+            let hour = self.getHour()
+            if(hour != "00" || hour != "12") {
+                
+                self.freeV2ThisHourSynced = false
+                self.logger.write("未到更新freev2配置信息的时间，hour: " + hour + ", return")
+                return
+            }
+            
+            if(self.freeV2ThisHourSynced){
+                
+                self.logger.write("已经更新freev2配置信息，return")
+                return
+            }
+            
+            self.logger.write("开始更新freev2配置信息")
+            self.getFreeV2()
+        }
+ 
+    }
+    private var freeV2ThisHourSynced: Bool = false;
+    func getHour() -> String {
+        
+        let now = Date()
+        let dformatter = DateFormatter()
+        dformatter.dateFormat = "HH"
+        return dformatter.string(from: now)
+    }
+    
+    
+    struct Log: TextOutputStream {
+
+        func dateStr()->String {
+            
+            let now = Date()
+            let dformatter = DateFormatter()
+            dformatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
+            return dformatter.string(from: now) + " [V2rayU]: "
+        }
+        
+        func write(_ string: String) {
+            
+            let msg = dateStr() + string + "\r\n";
+            // print(msg)
+            let fm = FileManager.default
+            let log = fm.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("/logs/v2ray-core.log")
+            if let handle = try? FileHandle(forWritingTo: log) {
+                handle.seekToEndOfFile()
+                handle.write(msg.data(using: .utf8)!)
+                handle.closeFile()
+            } else {
+                try? msg.data(using: .utf8)?.write(to: log)
+            }
+        }
     }
 
+    var logger = Log()
+    func getFreeV2() {
+        
+        let url = "https://view.freev2ray.org/"
+        Alamofire.request(url, method: .get, parameters: nil, encoding: URLEncoding.default, headers: nil)
+            .response{(response) in
+                
+                if let error = response.error {
+                    
+                    self.logger.write("页面数据获取错误，将return中断逻辑执行，error：" + error.localizedDescription);
+                    return
+                }
+                
+                if let data = response.data, let utf8Text = String(data: data, encoding: .utf8) {
+                    
+                    do{
+                        let html: String = utf8Text
+                        // print(html)
+                        let doc: Document = try SwiftSoup.parse(html)
+                        let portElement = try doc.getElementById("port");
+                        let uuidElement = try doc.getElementById("uuid");
+                        if (portElement == nil || uuidElement == nil){
+                            
+                            self.logger.write("页面数据获取错误，将return中断逻辑执行，html: " + html);
+                            return;
+                        }
+                        
+                        let port = try portElement!.text().trimmingCharacters(in: .whitespaces)
+                        let uuid = try uuidElement!.text().trimmingCharacters(in: .whitespaces)
+                        self.logger.write("获取的uuid: " + uuid + "，port: " + port)
+                        // print(uuid)
+                        // print(port)
+                        for item in V2rayServer.list(){
+                            // print(item)
+                            let jsonText: String = item.json;
+                            // print(json)
+                            // let json1 = JSON(jsonText)
+                            
+                            guard var json = try? JSON(data: jsonText.data(using: String.Encoding.utf8, allowLossyConversion: false)!) else {
+                                continue
+                            }
+                            guard var vnext = json["outbounds"][0]["settings"]["vnext"][0].dictionary else{
+                                
+                                continue
+                            }
+                            
+                            let address = vnext["address"]!.stringValue
+                            // print(address)
+                            if(address != "auto.freev2.top") {
+                                
+                                continue
+                            }
+                            
+                            let oldUUID = vnext["users"]?[0]["id"].stringValue
+                            // let oldPort = vnext["port"]
+                            if(oldUUID == uuid){
+                                
+                                self.logger.write("不需要修改")
+                                return
+                            }
+                            
+                            vnext["users"]?[0]["id"] = JSON(uuid)
+                            vnext["port"] = JSON(Int(port)!)
+                            
+                            json["outbounds"][0]["settings"]["vnext"][0] = JSON(vnext)
+                            
+                            // 写入
+                            item.json = json.rawString()!
+                            item.store()
+                            self.logger.write("save item successfully")
+                            
+                            // restart core
+                            UserDefaults.set(forKey: .v2rayCurrentServerName, value: item.name)
+                            menuController.startV2rayCore()
+                            self.logger.write("restart core successfully")
+                            self.freeV2ThisHourSynced = true
+                        }
+                    }catch let error {
+                        
+                        self.logger.write(error.localizedDescription)
+                    }
+                    
+                }
+        }
+        
+    }
+    
     func checkDefault() {
         if UserDefaults.get(forKey: .v2rayCoreVersion) == nil {
             UserDefaults.set(forKey: .v2rayCoreVersion, value: V2rayCore.version)
