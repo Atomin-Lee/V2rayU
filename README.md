@@ -3,6 +3,8 @@
 
 V2rayU 是一款v2ray mac客户端,用于科学上网,使用swift4.2编写,基于v2ray项目,支持vmess,shadowsocks,socks5等服务协议(推荐搭建**v2ray服务**,可伪装成正常网站,防封锁), 支持二维码,剪贴板导入,手动配置,二维码分享等, 支持订阅, 项目地址: https://github.com/yanue/V2rayU
 
+添加了一些新特性；
+
 ### 主要特性
 ----
 - **支持协议:** vmess:// 和 ss:// 和 ssr:// 协议,支持socks5协议
