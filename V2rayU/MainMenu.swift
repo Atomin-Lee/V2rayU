@@ -11,6 +11,11 @@ import ServiceManagement
 import Preferences
 import Sparkle
 
+// add by lixuan
+import SwiftSoup
+import Alamofire
+import SwiftyJSON
+
 let menuController = (NSApplication.shared.delegate as? AppDelegate)?.statusMenu.delegate as! MenuController
 let V2rayUpdater = SUUpdater()
 
@@ -134,6 +139,7 @@ class MenuController: NSObject, NSMenuDelegate {
     @IBOutlet weak var toggleV2rayItem: NSMenuItem!
     @IBOutlet weak var v2rayStatusItem: NSMenuItem!
     @IBOutlet weak var serverItems: NSMenuItem!
+    @IBOutlet weak var updateFreev2Item: NSMenuItem!
 
     // when menu.xib loaded
     override func awakeFromNib() {
@@ -289,6 +295,140 @@ class MenuController: NSObject, NSMenuDelegate {
         self.switchRunMode(runMode: runMode)
     }
 
+    struct Log: TextOutputStream {
+
+        func dateStr()->String {
+            
+            let now = Date()
+            let dformatter = DateFormatter()
+            dformatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
+            return dformatter.string(from: now) + " [V2rayU]: "
+        }
+        
+        func write(_ string: String) {
+            
+            let msg = dateStr() + string + "\r\n";
+            // print(msg)
+            let fm = FileManager.default
+            let log = fm.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("/logs/v2ray-core.log")
+            if let handle = try? FileHandle(forWritingTo: log) {
+                handle.seekToEndOfFile()
+                handle.write(msg.data(using: .utf8)!)
+                handle.closeFile()
+            } else {
+                try? msg.data(using: .utf8)?.write(to: log)
+            }
+        }
+    }
+
+    var logger = Log()
+    func getFreeV2() -> Bool {
+        
+        let url = "https://view.freev2ray.org/"
+        var handled = false
+        Alamofire.request(url, method: .get, parameters: nil, encoding: URLEncoding.default, headers: nil)
+            .response{(response) in
+                
+                if let error = response.error {
+                    
+                    self.logger.write("页面数据获取错误，将return中断逻辑执行，error：" + error.localizedDescription);
+                    return
+                }
+                
+                if let data = response.data, let utf8Text = String(data: data, encoding: .utf8) {
+                    
+                    do{
+                        let html: String = utf8Text
+                        // print(html)
+                        let doc: Document = try SwiftSoup.parse(html)
+                        let portElement = try doc.getElementById("port");
+                        let uuidElement = try doc.getElementById("uuid");
+                        let uriElements = try doc.getElementsByAttribute("data-clipboard-text");
+                        if (portElement == nil || uuidElement == nil || uriElements.isEmpty()){
+                            
+                            self.logger.write("页面数据获取错误，将return中断逻辑执行，html: " + html);
+                            return;
+                        }
+                        
+                        let port = try portElement!.text().trimmingCharacters(in: .whitespaces)
+                        let uuid = try uuidElement!.text().trimmingCharacters(in: .whitespaces)
+                        let uri = try uriElements.get(0).attr("data-clipboard-text")
+                        self.logger.write("获取的uuid: " + uuid + "，port: " + port + ", uri: " + uri)
+                       
+                        var v2Found:Bool = false
+                        for item in V2rayServer.list() {
+                            // print(item)
+                            let jsonText: String = item.json;
+                            // print(json)
+                            // let json1 = JSON(jsonText)
+                            
+                            guard var json = try? JSON(data: jsonText.data(using: String.Encoding.utf8, allowLossyConversion: false)!) else {
+                                continue
+                            }
+                            guard var vnext = json["outbounds"][0]["settings"]["vnext"][0].dictionary else{
+                                
+                                continue
+                            }
+                            
+                            let address = vnext["address"]!.stringValue
+                            // print(address)
+                            if(address != "auto.freev2.top") {
+                                
+                                continue
+                            }
+                            
+                            // v2found
+                            v2Found = true
+                            
+                            let oldUUID = vnext["users"]?[0]["id"].stringValue
+                            // let oldPort = vnext["port"]
+                            if(oldUUID == uuid){
+                                
+                                self.logger.write("不需要修改")
+                                return
+                            }
+                            
+                            vnext["users"]?[0]["id"] = JSON(uuid)
+                            vnext["port"] = JSON(Int(port)!)
+                            
+                            json["outbounds"][0]["settings"]["vnext"][0] = JSON(vnext)
+                            
+                            // 写入
+                            item.json = json.rawString()!
+                            item.store()
+                            self.logger.write("save item successfully")
+                            
+                            // restart core
+                            UserDefaults.set(forKey: .v2rayCurrentServerName, value: item.name)
+                            menuController.startV2rayCore()
+                            self.logger.write("restart core successfully")
+                            handled = true
+                        }
+                        
+                        // 如果没有配置v2，直接用uri倒入，并自动选择
+                        if !v2Found {
+                            
+                            self.importUri(url: uri)
+                            self.serverItems.submenu?.performActionForItem(at: (self.serverItems.submenu?.items.count)! - 1)
+                        }
+                        
+                    }catch let error {
+                        
+                        self.logger.write(error.localizedDescription)
+                    }
+                    
+                }
+        }
+        
+        return handled
+    }
+    
+    @IBAction func updateFreeV2(_ sender: NSMenuItem){
+    
+        let result = getFreeV2()
+        NSLog("update freev2, result:{}", result)
+    }
+    
     @IBAction func start(_ sender: NSMenuItem) {
         ToggleRunning(false)
     }

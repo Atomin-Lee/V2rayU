@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="14490.70" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="17506" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="14490.70"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="17506"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="NSApplication">
@@ -26,6 +26,7 @@
                 <outlet property="serverItems" destination="cio-ej-HL5" id="0Z8-41-eCi"/>
                 <outlet property="statusMenu" destination="9n3-TW-9ur" id="Hgg-sa-fM8"/>
                 <outlet property="toggleV2rayItem" destination="SML-EF-rdT" id="am7-ue-GN3"/>
+                <outlet property="updateFreev2Item" destination="ZUL-mS-DU3" id="elD-KQ-NCd"/>
                 <outlet property="v2rayStatusItem" destination="P34-uO-Vwf" id="F8I-tt-922"/>
             </connections>
         </customObject>
@@ -75,6 +76,12 @@
                 <menuItem title="Servers" id="cio-ej-HL5" userLabel="ServerItems">
                     <modifierMask key="keyEquivalentModifierMask"/>
                     <menu key="submenu" title="Servers" id="NCx-DY-Hm4"/>
+                </menuItem>
+                <menuItem title="Update FreeV2" id="ZUL-mS-DU3">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="updateFreeV2:" target="hcZ-V7-Dui" id="Ixb-cS-jqe"/>
+                    </connections>
                 </menuItem>
                 <menuItem title="Configure..." keyEquivalent="c" id="YoX-II-o27" userLabel="Configure">
                     <connections>
